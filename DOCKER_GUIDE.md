@@ -116,3 +116,31 @@ docker compose down -v
 ---
 
 _CARMS Docker Guide • January 2026_
+
+---
+
+## 📦 วิธีการส่งงานให้คนอื่น (Sharing Project)
+
+หากต้องการส่งโปรเจ็คนี้ให้ทีมงานหรือลูกค้า ให้ทำตามขั้นตอนนี้:
+
+### 1. การเตรียมไฟล์ (สำหรับผู้ส่ง)
+
+ก่อน ZIP ไฟล์ส่ง ให้ลบโฟลเดอร์ที่ไม่จำเป็นออกเพื่อประหยัดพื้นที่:
+
+1. ลบโฟลเดอร์ `node_modules` (ใน root และใน `apps/backend`, `apps/frontend`)
+2. ลบโฟลเดอร์ `.nuxt` และ `.output` หรือ `dist` (ใน `apps/frontend`)
+3. **ห้ามลบ** ไฟล์ `.env` (ถ้ามีค่าสำคัญ) แต่โดยปกติควรใช้ `.env.example`
+4. ZIP โฟลเดอร์ `crams_copy` ทั้งหมด
+
+### 2. สิ่งที่ผู้รับต้องทำ (Receiver Instructions)
+
+1. ติดตั้ง **Docker Desktop** ให้เรียบร้อย
+2. แตกไฟล์ ZIP
+3. เปิด Terminal (PowerShell หรือ CMD) ที่โฟลเดอร์โปรเจ็ค
+4. รันคำสั่ง:
+   ```powershell
+   docker compose up --build
+   ```
+5. รอจนเสร็จ แล้วเข้าใช้งานได้ทันทีที่ http://localhost:3000
+
+---
