@@ -22,10 +22,25 @@ import dashboardRoutes from './routes/dashboard.js'
 const app = express()
 const PORT = process.env.PORT || 3001
 
+// CORS configuration - supports ngrok via environment variable
+const allowedOrigins = process.env.ALLOWED_ORIGINS 
+  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+  : ['http://localhost:3000', 'http://127.0.0.1:3000']
+
 // Middleware
 app.use(helmet())
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true)
+    
+    // Check if origin is in allowed list or if wildcard is used
+    if (allowedOrigins.includes('*') || allowedOrigins.includes(origin) || origin.includes('.ngrok')) {
+      return callback(null, true)
+    }
+    
+    callback(new Error('Not allowed by CORS'))
+  },
   credentials: true
 }))
 app.use(express.json())

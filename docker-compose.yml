@@ -52,6 +52,7 @@ services:
       - JWT_SECRET=carms-super-secret-key-docker
       - JWT_EXPIRES_IN=24h
       - DATABASE_URL=postgresql://carms_admin:carms_password_2026@postgres:5432/carms_db
+      - ALLOWED_ORIGINS=*
     volumes:
       - ./apps/backend/src:/app/src
     depends_on:
@@ -70,7 +71,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NUXT_PUBLIC_API_BASE=http://localhost:3001/api
+      - NUXT_PUBLIC_API_BASE=/api
     volumes:
       - ./apps/frontend:/app
       - /app/node_modules

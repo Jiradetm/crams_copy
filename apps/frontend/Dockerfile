@@ -15,8 +15,10 @@ COPY . .
 # Expose port
 EXPOSE 3000
 
-# Set environment variable for API
-ENV NUXT_PUBLIC_API_BASE=http://backend:3001/api
+# Set environment variables for API
+# Using relative path for ngrok compatibility, proxy target points to backend container
+ENV NUXT_PUBLIC_API_BASE=/api
+ENV NUXT_API_PROXY_TARGET=http://backend:3001/api/**
 
 # Start the development server
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

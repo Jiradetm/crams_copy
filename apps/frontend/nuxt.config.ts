@@ -25,11 +25,13 @@ export default defineNuxtConfig({
 
     runtimeConfig: {
         public: {
-            apiBase: 'http://localhost:3001/api'
+            // Uses NUXT_PUBLIC_API_BASE env var, defaults to relative path for ngrok compatibility
+            apiBase: process.env.NUXT_PUBLIC_API_BASE || '/api'
         }
     },
 
     routeRules: {
-        '/api/**': { proxy: 'http://localhost:3001/api/**' }
+        // Proxy API calls to backend (works with Docker and ngrok)
+        '/api/**': { proxy: process.env.NUXT_API_PROXY_TARGET || 'http://localhost:3001/api/**' }
     }
 })
