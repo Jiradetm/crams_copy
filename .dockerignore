@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+.npm
+
+# Nuxt build output
+.nuxt/
+.output/
+dist/
+
+# Environment files (keep .env.example)
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Test coverage
+coverage/
+
+# Misc
+*.md
+!README.md

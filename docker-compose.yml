@@ -1,0 +1,90 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: carms-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: carms_db
+      POSTGRES_USER: carms_admin
+      POSTGRES_PASSWORD: carms_password_2026
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - carms-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U carms_admin -d carms_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # pgAdmin - Database Management UI
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: carms-pgadmin
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@carms.co.th
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    networks:
+      - carms-network
+    restart: unless-stopped
+
+  # Backend API Service
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    container_name: carms-backend
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - JWT_SECRET=carms-super-secret-key-docker
+      - JWT_EXPIRES_IN=24h
+      - DATABASE_URL=postgresql://carms_admin:carms_password_2026@postgres:5432/carms_db
+    volumes:
+      - ./apps/backend/src:/app/src
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - carms-network
+    restart: unless-stopped
+
+  # Frontend Nuxt Service
+  frontend:
+    build:
+      context: ./apps/frontend
+      dockerfile: Dockerfile
+    container_name: carms-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NUXT_PUBLIC_API_BASE=http://localhost:3001/api
+    volumes:
+      - ./apps/frontend:/app
+      - /app/node_modules
+      - /app/.nuxt
+    depends_on:
+      - backend
+    networks:
+      - carms-network
+    restart: unless-stopped
+
+networks:
+  carms-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  pgadmin_data:
