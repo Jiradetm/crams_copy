@@ -17,6 +17,7 @@ import meetingRoomsRoutes from './routes/meetingRooms.js'
 import reservationsRoutes from './routes/reservations.js'
 import leaveTypesRoutes from './routes/leaveTypes.js'
 import leaveRequestsRoutes from './routes/leaveRequests.js'
+import dashboardRoutes from './routes/dashboard.js'
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -47,6 +48,7 @@ app.get('/api/health', async (req, res) => {
 
 // API Routes
 app.use('/api/auth', authRoutes)
+app.use('/api/dashboard', dashboardRoutes)
 app.use('/api/users', usersRoutes)
 app.use('/api/employees', employeesRoutes)
 app.use('/api/departments', departmentsRoutes)

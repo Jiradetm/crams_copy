@@ -1,57 +1,115 @@
 <script setup lang="ts">
 definePageMeta({
-  title: 'แดชบอร์ด',
-  layout: 'default'
-})
+  title: "แดชบอร์ด",
+  layout: "default",
+});
 
-// Mock stats data
+const config = useRuntimeConfig();
+import { useAuthStore } from "~/stores/auth";
+const authStore = useAuthStore();
+
+// Stats data (Reactive)
 const stats = ref([
-  { title: 'พนักงานทั้งหมด', value: 156, icon: '👥', type: 'primary', change: '+12%' },
-  { title: 'การจองรถวันนี้', value: 8, icon: '🚗', type: 'info', change: '+3' },
-  { title: 'การประชุมวันนี้', value: 12, icon: '🏛️', type: 'warning', change: '5 ห้อง' },
-  { title: 'คำขอลารออนุมัติ', value: 5, icon: '📋', type: 'danger', change: 'Pending' },
-])
+  {
+    title: "พนักงานทั้งหมด",
+    value: 0,
+    icon: "👥",
+    type: "primary",
+    change: "Active",
+  },
+  {
+    title: "การจองรถวันนี้",
+    value: 0,
+    icon: "🚗",
+    type: "info",
+    change: "Active",
+  },
+  {
+    title: "การประชุมวันนี้",
+    value: 0,
+    icon: "🏛️",
+    type: "warning",
+    change: "Confirmed",
+  },
+  {
+    title: "คำขอลารออนุมัติ",
+    value: 0,
+    icon: "📋",
+    type: "danger",
+    change: "Pending",
+  },
+]);
 
-// Mock recent activities
-const activities = ref([
-  { id: 1, type: 'leave', user: 'สมชาย ใจดี', action: 'ยื่นขอลาพักร้อน', time: '5 นาทีที่แล้ว', status: 'pending' },
-  { id: 2, type: 'car', user: 'สมหญิง รักงาน', action: 'จองรถ กข 1234', time: '15 นาทีที่แล้ว', status: 'approved' },
-  { id: 3, type: 'meeting', user: 'วิชัย เก่งมาก', action: 'จองห้องประชุม A', time: '30 นาทีที่แล้ว', status: 'confirmed' },
-  { id: 4, type: 'leave', user: 'มานี มีทรัพย์', action: 'ลาป่วย 1 วัน', time: '1 ชั่วโมงที่แล้ว', status: 'approved' },
-])
+const activities = ref([]);
+const upcomingEvents = ref([]);
+const carAlerts = ref([]);
 
-// Mock upcoming events
-const upcomingEvents = ref([
-  { id: 1, title: 'ประชุมทีม HR', time: '10:00 - 12:00', room: 'ห้องประชุม A', attendees: 10 },
-  { id: 2, title: 'Sprint Planning', time: '14:00 - 16:00', room: 'ห้องประชุม B1', attendees: 6 },
-  { id: 3, title: 'Review ผลงาน Q4', time: '16:30 - 17:30', room: 'ห้องประชุม A', attendees: 15 },
-])
+const timeAgo = (dateStr: string) => {
+  if (!dateStr) return "";
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
-// Mock car alerts
-const carAlerts = ref([
-  { id: 1, car: 'กข 1234', type: 'insurance', message: 'ประกันภัยหมดอายุใน 15 วัน', level: 'warning' },
-  { id: 2, car: 'ขค 5678', type: 'tax', message: 'ภาษีรถหมดอายุใน 30 วัน', level: 'warning' },
-])
+  if (diffInSeconds < 60) return "เมื่อสักครู่";
+  const diffInMinutes = Math.floor(diffInSeconds / 60);
+  if (diffInMinutes < 60) return `${diffInMinutes} นาทีที่แล้ว`;
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  if (diffInHours < 24) return `${diffInHours} ชั่วโมงที่แล้ว`;
+  const diffInDays = Math.floor(diffInHours / 24);
+  return `${diffInDays} วันที่แล้ว`;
+};
+
+const fetchDashboardData = async () => {
+  try {
+    const token = localStorage.getItem("carms_token");
+    const data: any = await $fetch(`${config.public.apiBase}/dashboard`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (data) {
+      // Update stats
+      stats.value[0].value = data.stats.employees;
+      stats.value[1].value = data.stats.carBookings;
+      stats.value[2].value = data.stats.meetings;
+      stats.value[3].value = data.stats.pendingLeave;
+
+      // Update lists
+      activities.value = data.activities.map((a: any) => ({
+        ...a,
+        user: a.user_name,
+        time: timeAgo(a.created_at),
+      }));
+      upcomingEvents.value = data.upcomingEvents;
+      carAlerts.value = data.alerts;
+    }
+  } catch (error) {
+    console.error("Failed to fetch dashboard data:", error);
+  }
+};
+
+onMounted(() => {
+  fetchDashboardData();
+});
 
 const getStatusBadge = (status: string) => {
   const badges: Record<string, string> = {
-    pending: 'badge-warning',
-    approved: 'badge-success',
-    confirmed: 'badge-info',
-    rejected: 'badge-danger'
-  }
-  return badges[status] || 'badge-secondary'
-}
+    pending: "badge-warning",
+    approved: "badge-success",
+    confirmed: "badge-info",
+    rejected: "badge-danger",
+  };
+  return badges[status] || "badge-secondary";
+};
 
 const getStatusText = (status: string) => {
   const texts: Record<string, string> = {
-    pending: 'รออนุมัติ',
-    approved: 'อนุมัติแล้ว',
-    confirmed: 'ยืนยันแล้ว',
-    rejected: 'ปฏิเสธ'
-  }
-  return texts[status] || status
-}
+    pending: "รออนุมัติ",
+    approved: "อนุมัติแล้ว",
+    confirmed: "ยืนยันแล้ว",
+    rejected: "ปฏิเสธ",
+  };
+  return texts[status] || status;
+};
 </script>
 
 <template>
@@ -73,9 +131,9 @@ const getStatusText = (status: string) => {
 
     <!-- Stats Grid -->
     <div class="stats-grid">
-      <div 
-        v-for="stat in stats" 
-        :key="stat.title" 
+      <div
+        v-for="stat in stats"
+        :key="stat.title"
         class="stat-card animate-slide-up"
       >
         <div class="stat-icon" :class="stat.type">
@@ -95,12 +153,24 @@ const getStatusText = (status: string) => {
       <div class="card animate-slide-in">
         <div class="card-header">
           <h3 class="card-title">📋 กิจกรรมล่าสุด</h3>
-          <NuxtLink to="/activities" class="btn btn-ghost btn-sm">ดูทั้งหมด</NuxtLink>
+          <NuxtLink to="/leave/requests" class="btn btn-ghost btn-sm"
+            >ดูทั้งหมด</NuxtLink
+          >
         </div>
         <div class="activity-list">
-          <div v-for="activity in activities" :key="activity.id" class="activity-item">
+          <div
+            v-for="activity in activities"
+            :key="activity.id"
+            class="activity-item"
+          >
             <div class="activity-icon">
-              {{ activity.type === 'leave' ? '🏖️' : activity.type === 'car' ? '🚗' : '🏛️' }}
+              {{
+                activity.type === "leave"
+                  ? "🏖️"
+                  : activity.type === "car"
+                  ? "🚗"
+                  : "🏛️"
+              }}
             </div>
             <div class="activity-content">
               <p class="activity-text">
@@ -119,12 +189,18 @@ const getStatusText = (status: string) => {
       <div class="card animate-slide-in">
         <div class="card-header">
           <h3 class="card-title">📆 การประชุมวันนี้</h3>
-          <NuxtLink to="/meeting" class="btn btn-ghost btn-sm">ดูปฏิทิน</NuxtLink>
+          <NuxtLink to="/meeting" class="btn btn-ghost btn-sm"
+            >ดูปฏิทิน</NuxtLink
+          >
         </div>
         <div class="events-list">
-          <div v-for="event in upcomingEvents" :key="event.id" class="event-item">
+          <div
+            v-for="event in upcomingEvents"
+            :key="event.id"
+            class="event-item"
+          >
             <div class="event-time">
-              <span class="time-badge">{{ event.time.split(' - ')[0] }}</span>
+              <span class="time-badge">{{ event.time.split(" - ")[0] }}</span>
             </div>
             <div class="event-content">
               <h4>{{ event.title }}</h4>
@@ -141,12 +217,14 @@ const getStatusText = (status: string) => {
       <div class="card animate-slide-in">
         <div class="card-header">
           <h3 class="card-title">🔔 การแจ้งเตือนรถ</h3>
-          <NuxtLink to="/auto/alerts" class="btn btn-ghost btn-sm">ดูทั้งหมด</NuxtLink>
+          <NuxtLink to="/auto/alerts" class="btn btn-ghost btn-sm"
+            >ดูทั้งหมด</NuxtLink
+          >
         </div>
         <div class="alerts-list">
-          <div 
-            v-for="alert in carAlerts" 
-            :key="alert.id" 
+          <div
+            v-for="alert in carAlerts"
+            :key="alert.id"
             class="alert-item"
             :class="`alert-${alert.level}`"
           >
@@ -180,7 +258,11 @@ const getStatusText = (status: string) => {
             <span class="action-icon warning">🏛️</span>
             <span>จองห้องประชุม</span>
           </NuxtLink>
-          <NuxtLink to="/backoffice/employees/new" class="quick-action-btn">
+          <NuxtLink
+            v-if="authStore.isAdmin"
+            to="/backoffice/employees/new"
+            class="quick-action-btn"
+          >
             <span class="action-icon primary">👤</span>
             <span>เพิ่มพนักงาน</span>
           </NuxtLink>
@@ -242,10 +324,22 @@ const getStatusText = (status: string) => {
   display: inline-block;
 }
 
-.stat-change.primary { background: rgba(99, 102, 241, 0.2); color: var(--primary-400); }
-.stat-change.info { background: rgba(59, 130, 246, 0.2); color: var(--info); }
-.stat-change.warning { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
-.stat-change.danger { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
+.stat-change.primary {
+  background: rgba(99, 102, 241, 0.2);
+  color: var(--primary-400);
+}
+.stat-change.info {
+  background: rgba(59, 130, 246, 0.2);
+  color: var(--info);
+}
+.stat-change.warning {
+  background: rgba(245, 158, 11, 0.2);
+  color: var(--warning);
+}
+.stat-change.danger {
+  background: rgba(239, 68, 68, 0.2);
+  color: var(--danger);
+}
 
 /* Dashboard Grid */
 .dashboard-grid {
@@ -408,10 +502,18 @@ const getStatusText = (status: string) => {
   border-radius: var(--radius-lg);
 }
 
-.action-icon.primary { background: rgba(99, 102, 241, 0.2); }
-.action-icon.success { background: rgba(34, 197, 94, 0.2); }
-.action-icon.warning { background: rgba(245, 158, 11, 0.2); }
-.action-icon.info { background: rgba(59, 130, 246, 0.2); }
+.action-icon.primary {
+  background: rgba(99, 102, 241, 0.2);
+}
+.action-icon.success {
+  background: rgba(34, 197, 94, 0.2);
+}
+.action-icon.warning {
+  background: rgba(245, 158, 11, 0.2);
+}
+.action-icon.info {
+  background: rgba(59, 130, 246, 0.2);
+}
 
 /* Responsive */
 @media (max-width: 768px) {
@@ -420,11 +522,11 @@ const getStatusText = (status: string) => {
     gap: 16px;
     text-align: center;
   }
-  
+
   .welcome-date {
     text-align: center;
   }
-  
+
   .quick-actions {
     grid-template-columns: 1fr;
   }

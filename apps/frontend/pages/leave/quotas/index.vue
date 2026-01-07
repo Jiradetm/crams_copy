@@ -1,41 +1,79 @@
 <script setup lang="ts">
 definePageMeta({
-  title: 'โควต้าวันลา',
-  layout: 'default'
-})
+  title: "โควต้าวันลา",
+  layout: "default",
+});
 
-const config = useRuntimeConfig()
+import { useAuthStore } from "~/stores/auth";
+
+const authStore = useAuthStore();
+const config = useRuntimeConfig();
 
 // State
-const quotas = ref<any[]>([])
-const isLoading = ref(true)
+const quotas = ref<any[]>([]);
+const allQuotas = ref<any[]>([]);
+const viewMode = ref<"my" | "all">("my");
+const isLoading = ref(true);
 
-// Fetch quotas (mock - would need a new endpoint for all users)
+// Fetch my quotas
 const fetchQuotas = async () => {
-  isLoading.value = true
+  isLoading.value = true;
   try {
-    const token = localStorage.getItem('carms_token')
-    const response = await $fetch<any>(`${config.public.apiBase}/leave-requests/my-quota`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    quotas.value = response.quotas || []
+    const token = localStorage.getItem("carms_token");
+    const response = await $fetch<any>(
+      `${config.public.apiBase}/leave-requests/my-quota`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+    quotas.value = response.quotas || [];
   } catch (error) {
-    console.error('Failed to fetch quotas:', error)
+    console.error("Failed to fetch quotas:", error);
   } finally {
-    isLoading.value = false
+    isLoading.value = false;
   }
-}
+};
+
+// Fetch all quotas (Admin)
+const fetchAllQuotas = async () => {
+  if (!authStore.isAdmin) return;
+  isLoading.value = true;
+  try {
+    const token = localStorage.getItem("carms_token");
+    const response = await $fetch<any>(
+      `${config.public.apiBase}/leave-requests/all-quotas`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+    allQuotas.value = response.data || [];
+  } catch (error) {
+    console.error("Failed to fetch all quotas:", error);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+const toggleView = (mode: "my" | "all") => {
+  viewMode.value = mode;
+  if (mode === "all" && allQuotas.value.length === 0) {
+    fetchAllQuotas();
+  } else if (mode === "my" && quotas.value.length === 0) {
+    fetchQuotas();
+  }
+};
 
 const getProgressColor = (used: number, total: number) => {
-  const percentage = (used / total) * 100
-  if (percentage >= 80) return 'danger'
-  if (percentage >= 50) return 'warning'
-  return 'success'
-}
+  if (total === 0) return "success";
+  const percentage = (used / total) * 100;
+  if (percentage >= 80) return "danger";
+  if (percentage >= 50) return "warning";
+  return "success";
+};
 
 onMounted(() => {
-  fetchQuotas()
-})
+  fetchQuotas();
+});
 </script>
 
 <template>
@@ -50,7 +88,25 @@ onMounted(() => {
 
     <div class="card">
       <div class="card-header">
-        <h3 class="card-title">โควต้าปี 2569</h3>
+        <h3 class="card-title">
+          {{ viewMode === "my" ? "โควต้าปี 2569" : "โควต้าพนักงานทั้งหมด" }}
+        </h3>
+        <div v-if="authStore.isAdmin" class="view-toggle">
+          <button
+            class="btn btn-sm"
+            :class="viewMode === 'my' ? 'btn-primary' : 'btn-ghost'"
+            @click="toggleView('my')"
+          >
+            ของฉัน
+          </button>
+          <button
+            class="btn btn-sm"
+            :class="viewMode === 'all' ? 'btn-primary' : 'btn-ghost'"
+            @click="toggleView('all')"
+          >
+            พนักงานทุกคน
+          </button>
+        </div>
       </div>
 
       <div v-if="isLoading" class="loading-state">
@@ -58,36 +114,87 @@ onMounted(() => {
         <p>กำลังโหลดข้อมูล...</p>
       </div>
 
-      <div v-else class="quotas-grid">
-        <div v-for="q in quotas" :key="q.leaveTypeId" class="quota-detail-card">
-          <div class="quota-icon">
-            {{ q.leaveType === 'ลาป่วย' ? '🤒' : q.leaveType === 'ลาพักร้อน' ? '🏖️' : '📋' }}
-          </div>
-          <div class="quota-content">
-            <h4>{{ q.leaveType }}</h4>
-            <div class="quota-stats">
-              <div class="stat-item">
-                <span class="stat-value">{{ q.total }}</span>
-                <span class="stat-label">รวม</span>
+      <div v-else>
+        <!-- My Quota View -->
+        <div v-if="viewMode === 'my'" class="quotas-grid">
+          <div
+            v-for="q in quotas"
+            :key="q.leaveTypeId"
+            class="quota-detail-card"
+          >
+            <div class="quota-icon">
+              {{
+                q.leaveType === "ลาป่วย"
+                  ? "🤒"
+                  : q.leaveType === "ลาพักร้อน"
+                  ? "🏖️"
+                  : "📋"
+              }}
+            </div>
+            <div class="quota-content">
+              <h4>{{ q.leaveType }}</h4>
+              <div class="quota-stats">
+                <div class="stat-item">
+                  <span class="stat-value">{{ q.total }}</span>
+                  <span class="stat-label">รวม</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-value used">{{ q.used }}</span>
+                  <span class="stat-label">ใช้ไป</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-value remaining">{{ q.remaining }}</span>
+                  <span class="stat-label">คงเหลือ</span>
+                </div>
               </div>
-              <div class="stat-item">
-                <span class="stat-value used">{{ q.used }}</span>
-                <span class="stat-label">ใช้ไป</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-value remaining">{{ q.remaining }}</span>
-                <span class="stat-label">คงเหลือ</span>
+              <div class="quota-progress">
+                <div class="progress-bar">
+                  <div
+                    class="progress-fill"
+                    :class="getProgressColor(q.used, q.total)"
+                    :style="{ width: `${(q.used / q.total) * 100}%` }"
+                  ></div>
+                </div>
+                <span class="progress-text"
+                  >{{ ((q.used / q.total) * 100).toFixed(0) }}% ใช้แล้ว</span
+                >
               </div>
             </div>
-            <div class="quota-progress">
-              <div class="progress-bar">
-                <div 
-                  class="progress-fill"
-                  :class="getProgressColor(q.used, q.total)"
-                  :style="{ width: `${(q.used / q.total) * 100}%` }"
-                ></div>
+          </div>
+        </div>
+
+        <!-- All Quotas Grid (Admin) -->
+        <div v-else class="all-quotas-list">
+          <div
+            v-for="emp in allQuotas"
+            :key="emp.id"
+            class="employee-quota-card"
+          >
+            <div class="emp-header">
+              <div class="emp-avatar">{{ emp.name.charAt(0) }}</div>
+              <div>
+                <h4>{{ emp.name }}</h4>
+                <span class="text-sm text-muted">{{ emp.code }}</span>
               </div>
-              <span class="progress-text">{{ ((q.used / q.total) * 100).toFixed(0) }}% ใช้แล้ว</span>
+            </div>
+            <div class="emp-quotas">
+              <div
+                v-for="q in emp.quotas"
+                :key="q.leaveTypeId"
+                class="mini-quota-item"
+              >
+                <div class="mini-header">
+                  <span class="mini-label">{{ q.leaveType }}</span>
+                  <span class="mini-val">{{ q.used }} / {{ q.total }}</span>
+                </div>
+                <div class="progress-bar sm">
+                  <div
+                    class="progress-fill"
+                    :class="getProgressColor(q.used, q.total)"
+                    :style="{ width: `${(q.used / q.total) * 100}%` }"
+                  ></div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -104,7 +211,10 @@ onMounted(() => {
           <span class="policy-icon">🤒</span>
           <div class="policy-content">
             <h4>ลาป่วย</h4>
-            <p>ลาได้ไม่เกิน 30 วัน/ปี • ลาเกิน 3 วันต้องมีใบรับรองแพทย์ • ย้อนหลังได้ 30 วัน</p>
+            <p>
+              ลาได้ไม่เกิน 30 วัน/ปี • ลาเกิน 3 วันต้องมีใบรับรองแพทย์ •
+              ย้อนหลังได้ 30 วัน
+            </p>
           </div>
         </div>
         <div class="policy-item">
@@ -237,9 +347,15 @@ onMounted(() => {
   transition: width 0.5s ease;
 }
 
-.progress-fill.success { background: var(--success); }
-.progress-fill.warning { background: var(--warning); }
-.progress-fill.danger { background: var(--danger); }
+.progress-fill.success {
+  background: var(--success);
+}
+.progress-fill.warning {
+  background: var(--warning);
+}
+.progress-fill.danger {
+  background: var(--danger);
+}
 
 .progress-text {
   font-size: 0.8125rem;
@@ -284,13 +400,86 @@ onMounted(() => {
     flex-direction: column;
     text-align: center;
   }
-  
+
   .quota-icon {
     margin: 0 auto;
   }
-  
+
   .quota-stats {
     justify-content: center;
   }
+}
+
+/* Admin View Styles */
+.view-toggle {
+  display: flex;
+  gap: 8px;
+}
+
+.all-quotas-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.employee-quota-card {
+  background: var(--bg-glass);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 16px;
+}
+
+.emp-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.emp-avatar {
+  width: 40px;
+  height: 40px;
+  background: var(--gradient-primary);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+}
+
+.emp-quotas {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mini-quota-item {
+  font-size: 0.875rem;
+}
+
+.mini-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.mini-val {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.progress-bar.sm {
+  height: 6px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 </style>

@@ -354,6 +354,13 @@ h6 { font-size: 0.875rem; }
   padding-right: 44px;
 }
 
+/* Fix for select dropdown options in dark mode */
+.form-select option {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  padding: 12px;
+}
+
 .form-checkbox {
   display: flex;
   align-items: center;

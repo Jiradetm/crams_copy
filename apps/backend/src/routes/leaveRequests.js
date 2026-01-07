@@ -36,6 +36,53 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 })
 
+// GET /api/leave-requests/all-quotas
+router.get('/all-quotas', authenticateToken, async (req, res) => {
+  try {
+    // Check if admin
+    const userResult = await db.query('SELECT system_role FROM users WHERE id = $1', [req.user.userId])
+    if (userResult.rows[0]?.system_role !== 'Admin') {
+      return res.status(403).json({ error: 'ไม่มีสิทธิ์เข้าถึง' })
+    }
+
+    const currentYear = new Date().getFullYear()
+    const result = await db.query(`
+      SELECT lq.*, lt.name as leave_type_name, e.first_name, e.last_name, e.employee_code
+      FROM leave_quotas lq
+      JOIN leave_types lt ON lq.leave_type_id = lt.id
+      JOIN employees e ON lq.employee_id = e.id
+      WHERE lq.year = $1
+      ORDER BY e.employee_code, lt.id
+    `, [currentYear])
+
+    // Group by employee
+    const employeesMap = new Map()
+    
+    result.rows.forEach(row => {
+      if (!employeesMap.has(row.employee_id)) {
+        employeesMap.set(row.employee_id, {
+          id: row.employee_id,
+          code: row.employee_code,
+          name: `${row.first_name} ${row.last_name}`,
+          quotas: []
+        })
+      }
+      employeesMap.get(row.employee_id).quotas.push({
+        leaveTypeId: row.leave_type_id,
+        leaveType: row.leave_type_name,
+        total: parseFloat(row.total_days),
+        used: parseFloat(row.used_days),
+        remaining: parseFloat(row.total_days) - parseFloat(row.used_days)
+      })
+    })
+
+    res.json({ year: currentYear, data: Array.from(employeesMap.values()) })
+  } catch (error) {
+    console.error('Get all quotas error:', error)
+    res.status(500).json({ error: 'เกิดข้อผิดพลาด' })
+  }
+})
+
 // GET /api/leave-requests/my-quota
 router.get('/my-quota', authenticateToken, async (req, res) => {
   try {

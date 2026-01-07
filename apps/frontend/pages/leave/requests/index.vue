@@ -1,89 +1,108 @@
 <script setup lang="ts">
-definePageMeta({
-  title: 'คำขอลางาน',
-  layout: 'default'
-})
+import { useAuthStore } from "~/stores/auth";
 
-const config = useRuntimeConfig()
-const authStore = useAuthStore()
+definePageMeta({
+  title: "คำขอลางาน",
+  layout: "default",
+});
+
+const config = useRuntimeConfig();
+const authStore = useAuthStore();
 
 // State
-const leaveRequests = ref<any[]>([])
-const isLoading = ref(true)
-const filterStatus = ref('')
+const leaveRequests = ref<any[]>([]);
+const isLoading = ref(true);
+const filterStatus = ref("");
 
 // Fetch leave requests
 const fetchRequests = async () => {
-  isLoading.value = true
+  isLoading.value = true;
   try {
-    const token = localStorage.getItem('carms_token')
-    const response = await $fetch<{ data: any[] }>(`${config.public.apiBase}/leave-requests`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    leaveRequests.value = response.data
+    const token = localStorage.getItem("carms_token");
+    const response = await $fetch<{ data: any[] }>(
+      `${config.public.apiBase}/leave-requests`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+    leaveRequests.value = response.data;
   } catch (error) {
-    console.error('Failed to fetch requests:', error)
+    console.error("Failed to fetch requests:", error);
   } finally {
-    isLoading.value = false
+    isLoading.value = false;
   }
-}
+};
 
 const filteredRequests = computed(() => {
-  if (!filterStatus.value) return leaveRequests.value
-  return leaveRequests.value.filter(r => r.status === filterStatus.value)
-})
+  if (!filterStatus.value) return leaveRequests.value;
+  return leaveRequests.value.filter((r) => r.status === filterStatus.value);
+});
 
 const getStatusBadge = (status: string) => {
   const map: Record<string, string> = {
-    'pending': 'badge-warning',
-    'approved': 'badge-success',
-    'rejected': 'badge-danger',
-    'cancelled': 'badge-secondary'
-  }
-  return map[status] || 'badge-secondary'
-}
+    pending: "badge-warning",
+    approved: "badge-success",
+    rejected: "badge-danger",
+    cancelled: "badge-secondary",
+  };
+  return map[status] || "badge-secondary";
+};
 
 const getStatusText = (status: string) => {
   const map: Record<string, string> = {
-    'pending': 'รออนุมัติ',
-    'approved': 'อนุมัติแล้ว',
-    'rejected': 'ปฏิเสธ',
-    'cancelled': 'ยกเลิก'
-  }
-  return map[status] || status
-}
+    pending: "รออนุมัติ",
+    approved: "อนุมัติแล้ว",
+    rejected: "ปฏิเสธ",
+    cancelled: "ยกเลิก",
+  };
+  return map[status] || status;
+};
 
 const approveRequest = async (id: string) => {
   try {
-    const token = localStorage.getItem('carms_token')
+    const token = localStorage.getItem("carms_token");
     await $fetch(`${config.public.apiBase}/leave-requests/${id}/status`, {
-      method: 'PATCH',
+      method: "PATCH",
       headers: { Authorization: `Bearer ${token}` },
-      body: { status: 'approved' }
-    })
-    await fetchRequests()
+      body: { status: "approved" },
+    });
+    await fetchRequests();
   } catch (error) {
-    console.error('Failed to approve:', error)
+    console.error("Failed to approve:", error);
   }
-}
+};
 
 const rejectRequest = async (id: string) => {
   try {
-    const token = localStorage.getItem('carms_token')
+    const token = localStorage.getItem("carms_token");
     await $fetch(`${config.public.apiBase}/leave-requests/${id}/status`, {
-      method: 'PATCH',
+      method: "PATCH",
       headers: { Authorization: `Bearer ${token}` },
-      body: { status: 'rejected' }
-    })
-    await fetchRequests()
+      body: { status: "rejected" },
+    });
+    await fetchRequests();
   } catch (error) {
-    console.error('Failed to reject:', error)
+    console.error("Failed to reject:", error);
   }
-}
+};
+
+const cancelRequest = async (id: string) => {
+  if (!confirm("ต้องการยกเลิกคำขอลานี้หรือไม่?")) return;
+  try {
+    const token = localStorage.getItem("carms_token");
+    await $fetch(`${config.public.apiBase}/leave-requests/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    await fetchRequests();
+  } catch (error) {
+    console.error("Failed to cancel:", error);
+  }
+};
 
 onMounted(() => {
-  fetchRequests()
-})
+  fetchRequests();
+});
 </script>
 
 <template>
@@ -142,24 +161,31 @@ onMounted(() => {
               <td>
                 <div class="employee-cell">
                   <div class="employee-avatar">
-                    {{ request.employee?.name?.charAt(0) || 'U' }}
+                    {{ request.employee?.name?.charAt(0) || "U" }}
                   </div>
-                  <span>{{ request.employee?.name || '-' }}</span>
+                  <span>{{ request.employee?.name || "-" }}</span>
                 </div>
               </td>
               <td>
-                <span class="badge badge-primary">{{ request.leaveType?.name }}</span>
+                <span class="badge badge-primary">{{
+                  request.leaveType?.name
+                }}</span>
               </td>
               <td>
                 <div class="date-cell">
                   <span>{{ request.startDate }}</span>
-                  <span class="text-muted" v-if="request.startDate !== request.endDate">
+                  <span
+                    class="text-muted"
+                    v-if="request.startDate !== request.endDate"
+                  >
                     → {{ request.endDate }}
                   </span>
                 </div>
               </td>
               <td>{{ request.days }} วัน</td>
-              <td class="truncate" style="max-width: 200px;">{{ request.reason }}</td>
+              <td class="truncate" style="max-width: 200px">
+                {{ request.reason }}
+              </td>
               <td>
                 <span class="badge" :class="getStatusBadge(request.status)">
                   {{ getStatusText(request.status) }}
@@ -167,16 +193,20 @@ onMounted(() => {
               </td>
               <td>
                 <div class="action-buttons">
-                  <button class="btn btn-ghost btn-sm" title="ดูรายละเอียด">👁️</button>
-                  <template v-if="request.status === 'pending' && authStore.isAdmin">
-                    <button 
+                  <button class="btn btn-ghost btn-sm" title="ดูรายละเอียด">
+                    👁️
+                  </button>
+                  <template
+                    v-if="request.status === 'pending' && authStore.isAdmin"
+                  >
+                    <button
                       class="btn btn-success btn-sm"
                       @click="approveRequest(request.id)"
                       title="อนุมัติ"
                     >
                       ✅
                     </button>
-                    <button 
+                    <button
                       class="btn btn-danger btn-sm"
                       @click="rejectRequest(request.id)"
                       title="ปฏิเสธ"
@@ -184,6 +214,14 @@ onMounted(() => {
                       ❌
                     </button>
                   </template>
+                  <button
+                    v-if="authStore.isAdmin && request.status !== 'cancelled'"
+                    class="btn btn-ghost btn-sm"
+                    @click="cancelRequest(request.id)"
+                    title="ยกเลิก"
+                  >
+                    🗑️
+                  </button>
                 </div>
               </td>
             </tr>

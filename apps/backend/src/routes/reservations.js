@@ -36,7 +36,8 @@ router.get('/calendar', authenticateToken, async (req, res) => {
   try {
     const { year, month } = req.query
     const startDate = `${year}-${String(month).padStart(2, '0')}-01`
-    const endDate = `${year}-${String(month).padStart(2, '0')}-31`
+    const lastDay = new Date(year, month, 0).getDate()
+    const endDate = `${year}-${String(month).padStart(2, '0')}-${lastDay}`
 
     const result = await db.query(`
       SELECT r.*, m.name as room_name, e.first_name || ' ' || e.last_name as booked_by_name
@@ -49,9 +50,10 @@ router.get('/calendar', authenticateToken, async (req, res) => {
 
     res.json({ data: result.rows.map(r => ({
       id: r.id,
+      roomId: r.room_id,
       room: r.room_name,
       title: r.title,
-      date: r.date,
+      date: typeof r.date === 'string' ? r.date.split('T')[0] : r.date.toISOString().split('T')[0],
       startTime: r.start_time,
       endTime: r.end_time,
       bookedBy: r.booked_by_name,
@@ -66,6 +68,17 @@ router.get('/calendar', authenticateToken, async (req, res) => {
 router.post('/', authenticateToken, async (req, res) => {
   try {
     const { roomId, title, description, date, startTime, endTime, attendeesCount } = req.body
+
+    // Validate date not in past
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    const todayStr = `${year}-${month}-${day}`
+
+    if (date < todayStr) {
+      return res.status(400).json({ error: 'ไม่สามารถจองย้อนหลังได้' })
+    }
 
     // Check for overlapping reservations
     const conflictResult = await db.query(`
